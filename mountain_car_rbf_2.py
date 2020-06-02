@@ -11,10 +11,8 @@ env.render()
 # Some initializations
 #
 n_actions = env.action_space.n
-n_states = 40
 episodes = 500
-initial_lr = 1.0
-min_lr = 0.005
+alpha = 0.01
 gamma = 0.99
 epsilon = 0.05
 
@@ -83,13 +81,12 @@ w = np.zeros(J)
 for episode in range(episodes):
     print("Episode:", episode)
     obs = env.reset()
-    alpha = max(min_lr, initial_lr * (gamma ** (episode // 100)))
     action = get_action(obs[0], obs[1], w)
     step = 0
     while True:
-        if episode >= (episodes - 1):
-            env.render()
-        # env.render()
+        # if episode >= (episodes - 1):
+        #     env.render()
+        env.render()
         curr_pos, curr_vel = obs
         curr_action = action
         obs, reward, terminate, _ = env.step(action)
