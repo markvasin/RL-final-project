@@ -37,22 +37,30 @@ class RLModel:
         self.feature_transformer = feature_transformer
         self.w = np.zeros((env.action_space.n, feature_transformer.dimension))
 
-    def q(self, states, action):
-        features = self.feature_transformer.featurize_state(states)
+    def q(self, state, action):
+        features = self.feature_transformer.featurize_state(state)
         return np.dot(features, self.w[action])
 
     def epsilon_greedy(self, state):
-        features = self.feature_transformer.featurize_state(state)
-        yh = features @ self.w.T
+        y = self.predict(state)
         if np.random.uniform(low=0, high=1) < epsilon:
-            chosen_action = np.random.choice(env.action_space.n)
+            chosen_action = env.action_space.sample()
         else:
-            chosen_action = np.argmax(yh)
+            chosen_action = np.argmax(y)
         return chosen_action
+
+    def predict(self, state):
+        features = self.feature_transformer.featurize_state(state)
+        return features @ self.w.T
 
     def sarsa_update(self, lr, reward, gamma, state, action, next_state, next_action):
         feature = feature_transformer.featurize_state(state).flatten()
         self.w[action] += lr * (reward + gamma * self.q(next_state, next_action) - self.q(state, action)) * feature
+
+    def q_update(self, lr, reward, gamma, state, action, next_state):
+        feature = feature_transformer.featurize_state(state).flatten()
+        next_q_max = np.max(self.predict(next_state))
+        self.w[action] += lr * (reward + gamma * next_q_max - self.q(state, action)) * feature
 
 
 if __name__ == '__main__':
@@ -74,24 +82,25 @@ if __name__ == '__main__':
 
     for episode in range(episodes):
         print("Episode:", episode)
-        state = env.reset()
+        state = env.reset()  # initial state
+        action = model.epsilon_greedy(state)  # initial action
         step = 0
         total_reward = 0
         while True:
             # if episode >= (episodes - 1):
             #     env.render()
             env.render()
-            action = model.epsilon_greedy(state)
             next_state, reward, terminate, _ = env.step(action)
-            next_action = model.epsilon_greedy(next_state)
-            model.sarsa_update(alpha, reward, gamma, state, action, next_state, next_action)
-
+            next_action = model.epsilon_greedy(state)
+            # model.sarsa_update(alpha, reward, gamma, state, action, next_state, next_action)
+            model.q_update(alpha, reward, gamma, state, action, next_state)
             if terminate:
                 break
 
+            state = next_state
+            action = next_action
             step += 1
             total_reward += reward
-            state = next_state
 
         print('Total steps:', step)
         print('Return:', total_reward)
