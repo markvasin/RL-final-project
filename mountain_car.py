@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+import matplotlib.pyplot as plt
 
 env_name = "MountainCar-v0"
 env = gym.make(env_name)
@@ -9,7 +10,7 @@ env.render()
 # Some initializations
 #
 n_states = 40
-episodes = 5000
+episodes = 1000
 initial_lr = 1.0
 min_lr = 0.005
 gamma = 0.99
@@ -36,11 +37,14 @@ def discretization(env, obs):
 q_table = np.zeros((n_states, n_states, env.action_space.n))
 print(q_table.shape)
 
-#
+step_plot = []
+
 for episode in range(episodes):
     print("Episode:", episode)
     obs = env.reset()
     alpha = max(min_lr, initial_lr * (gamma ** (episode // 100)))
+
+    step = 0
     while True:
         if episode >= (episodes - 1):
             env.render()
@@ -59,6 +63,18 @@ for episode in range(episodes):
 
         if terminate:
             break
+        step += 1
+
+    step_plot.append(step)
+    print(step)
+
+plt.figure()
+# Plot the reward over all episodes
+plt.plot(np.arange(episodes), step_plot)
+plt.xlabel("Episode")
+plt.ylabel("Steps Count")
+plt.title('Steps Count over Time')
+plt.show()
 
 env.close()
 with open('q_table.npy', 'wb') as f:

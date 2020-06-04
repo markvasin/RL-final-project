@@ -32,7 +32,7 @@ N, pp1 = data.shape
 X = np.array(data[:, :-1])
 y = np.array(data[:, -1])
 
-J = 300
+J = 450
 kmeans = KMeans(n_clusters=J, random_state=0).fit(X)
 sig = np.std(X)
 print('sigma', sig)
@@ -50,7 +50,7 @@ yh = U @ w
 print('loss', np.linalg.norm(y - yh))
 # Some initializations
 #
-episodes = 10
+episodes = 100
 
 env = env.unwrapped
 env.seed()
@@ -83,15 +83,23 @@ def get_action(p, v):
     return best_action
 
 
+ave_reward = np.zeros(episodes)
+
 for episode in range(episodes):
     print("Episode:", episode)
     obs = env.reset()
+    total_rewards = 0
     while True:
-        env.render()
+        if episode >= (episodes - 1):
+            env.render()
+        # env.render()
         pos, vel = discretization(env, obs)
         a = get_action(pos, vel)
         obs, reward, terminate, _ = env.step(a)
+        total_rewards += reward
         if terminate:
             break
+    ave_reward[episode] = total_rewards
 
+print(ave_reward.mean())
 env.close()

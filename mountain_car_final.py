@@ -70,7 +70,7 @@ def plot_cost_to_go_mountain_car(env, estimator, num_tiles=20):
     x = np.linspace(env.observation_space.low[0], env.observation_space.high[0], num=num_tiles)
     y = np.linspace(env.observation_space.low[1], env.observation_space.high[1], num=num_tiles)
     X, Y = np.meshgrid(x, y)
-    Z = np.apply_along_axis(lambda _: -np.max(estimator.predict(_)), 2, np.dstack([X, Y]))
+    Z = np.apply_along_axis(lambda _: np.max(estimator.predict(_)), 2, np.dstack([X, Y]))
 
     fig = plt.figure(figsize=(10, 5))
     ax = fig.add_subplot(111, projection='3d')
@@ -78,7 +78,7 @@ def plot_cost_to_go_mountain_car(env, estimator, num_tiles=20):
     ax.set_xlabel('Position')
     ax.set_ylabel('Velocity')
     ax.set_zlabel('Value')
-    ax.set_title("Mountain \"Cost To Go\" Function")
+    # ax.set_title('Value Function')
     fig.colorbar(surf)
     plt.show()
 
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     env.render()
 
     # initializations
-    episodes = 500
+    episodes = 1000
     alpha = 0.01  # learning rate
     gamma = 0.99  # discount factor
     epsilon = 0.05  # epsilon greedy policy
@@ -116,8 +116,8 @@ if __name__ == '__main__':
             next_state, reward, terminate, _ = env.step(action)
             next_action = model.epsilon_greedy(state)
 
-            # model.sarsa_update(alpha, reward, gamma, state, action, next_state, next_action)
-            model.q_update(alpha, reward, gamma, state, action, next_state)
+            model.sarsa_update(alpha, reward, gamma, state, action, next_state, next_action)
+            # model.q_update(alpha, reward, gamma, state, action, next_state)
 
             if terminate:
                 break
@@ -132,12 +132,13 @@ if __name__ == '__main__':
         print('Return:', total_reward)
         print()
 
+    print('average rewards', np.array(episode_rewards).mean())
     plt.figure()
     # Plot the reward over all episodes
     plt.plot(np.arange(episodes), episode_rewards)
     plt.xlabel("Episode")
     plt.ylabel("Rewards")
-    plt.title('Episode Rewards over Time')
+    # plt.title('Episode Rewards over Time')
     plt.show()
     # plot our final Q function
     plot_cost_to_go_mountain_car(env, model)
