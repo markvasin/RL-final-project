@@ -12,6 +12,7 @@
 \usepackage{hyperref}
 \usepackage{caption}
 \usepackage{booktabs} %helps format tables
+\usepackage[ruled]{algorithm2e}
 
 \newenvironment{myitemize}
 { \begin{enumerate}
@@ -83,12 +84,12 @@ An RBF model is consisted of nonlinear basis functions, typically a gaussian fun
 For a gaussian RBF model, the hyperparameters includes the number of basis functions ($J$), the location of each basis function ($m_j$), 
 and the width of each basis function ($\sigma_j$). 
 Since the basis functions are linearly combined, the gaussian RBF model are \textit{linear} in parameters. 
-Therefore, in addition to incrementally updating the weight using gradient descent, 
+Therefore, in addition to being able to incrementally updating the weight using gradient descent, 
 it can be solved in closed-form using pseudo inverse method, and there exists a true global minimum.
 
 For this task, the Wine Quality dataset from UCI repository is selected as a regression problem. 
 The goal is to predicted the quality of the wine given the attributes, such as acidity, pH value, and alcohol of each wine. 
-There are a total of 11 features and a target (score between 0 and 10). 
+There are a total of 11 features and a target (quality score between 0 and 10). 
 The steps of solving this problem using Gaussian RBF are summarised as follows.
 \begin{myitemize}
     \item The features are normalized to have zero mean and unit variance, 
@@ -134,7 +135,7 @@ for iter in range(MaxIter):
 For the following tasks, a gaussian RBF is used to approximate the action value function of a mountain car problem using OpenAI Gym environment.
 The goal of this problem is to get the under-power car to the top of the mountain.
 The states consisted of 2D continuous values of position (-1.2 to 0.6) and velocity (-0.07 to 0.07), 
-and the available actions are move left (0), no movement (1) and move right (2). 
+and the available actions are move left (0), stay (1) and move right (2). 
 For each time step, there is a reward (penalty) of -1 until the goal is reached.
 This is a control problem where the agent needs to iteratively improve its policy in order to achieve its goal.
 \vspace{-1em}
@@ -142,7 +143,7 @@ This is a control problem where the agent needs to iteratively improve its polic
 
 In this task, the mountain car is solved using Q-learning and tabular discretization method. 
 The discretization of states is done by dividing the state space into 40 by 40 grids (velocity and position). 
-In order to ensure that the agent can find optimal policy, extensive exploration of the state is needed.
+In order to ensure that the agent can find the optimal policy, extensive exploration of the state is needed.
 Therefore, epsilon-greedy approach (with epsilon of 0.05) is used to select the next action.
 Then, Q-learning, an off-policy model-free control algorithm, is applied to iteratively improve the action value table.
 For this method, in the initial episode, it took more than thousands steps (achieving rewards of less than -1000s), 
@@ -191,8 +192,8 @@ In addition, learning online with function approximation also helps generalize t
 The process to learn the weight of RBF, as an action value function approximator, online can be summarised as follows.
 
 \begin{myitemize}
-  \item To generate the initial data for finding the hyperparameters for Gaussian RBF, such as the center and the width, 
-  the state space are sampled randomly for 10000 data points.
+  \item The state space are sampled randomly for 10000 data points 
+  in order to generate the initial data for finding the hyperparameters for Gaussian RBF, such as the center and the width.
   \item The sampled data are normalized to zero mean and unit variance.
   \item Using the sampled data, the number of basis functions, center and width of each basis function are selected the same way as mentioned in section 1.1.
   \item The RBF models are created based on the number of action (action-out approach), which means action are not part of the features.
@@ -202,13 +203,17 @@ The process to learn the weight of RBF, as an action value function approximator
 \end{myitemize}  
 
 Figure \ref{episode-reward} shows the reward of each episode over time using Q-learning update rule
-with 200 basis functions, fixed learning rate of 0.01 and discount factor of 0.99. 
+with 200 basis functions, fixed learning rate of 0.01 and a discount factor of 0.99. 
 As shown in figure \ref{episode-reward}, the reward converges to around -130 after just 5 episode.
 With better tuning of hyperparameters, such as learning rate, discount factor, and epsilon, 
 the average reward would definitely increase further. 
-Figure \ref{value-plot} shows the 3D plot of the value of the state space. 
-For each state the value is calculated using the maximum value from all the actions from the approximated action value function.
+Figure \ref{value-plot} shows the 3D plot of the value of the state space, in which
+the value are calculated using $max_a \hat{q}(s,a,w)$.
 As expected, the value is high on the top right of the figure, which is where the position is near the goal and the velocity is high.
+Another interesting point is that the value is higher on the left position compare to the value from middle position, 
+because of the fact that the car has built more momentum to drive to the top of the mountain.
+The snippet of code for this section including the initialisation of RBF, SARSA update,
+Q-learning update and epsilon-greedy policy are shown in appendix \ref{rl-code}.
 
 \begin{figure}[h]
   \centering
@@ -226,58 +231,146 @@ As expected, the value is high on the top right of the figure, which is where th
   \end{minipage}
 \end{figure}
 
-\newpage
-Snippet of code of an RL agent using gaussian RBF as an action value function approximator.
-\begin{lstlisting}[language=Python]
-# generate basis function center using K-means clustering and sampled environment states.
-def init_rbf(self, env, n_basis=100):
-    observation_examples = np.array([env.observation_space.sample() for x in range(10000)])
-    scaler = StandardScaler()
-    scaler.fit(observation_examples)
-    scaled_examples = scaler.transform(observation_examples)
-    kmeans = KMeans(n_clusters=n_basis, random_state=0).fit(scaled_examples)
-    return kmeans.cluster_centers_
-
-# get Q value from a given state and action
-def q(self, state, action):
-    features = self.feature_transformer.featurize_state(state)
-    return np.dot(features, self.w[action])
-
-# given state choose next action based on epsilon greedy policy
-def epsilon_greedy(self, state):
-    y = self.predict(state)
-    if np.random.uniform(low=0, high=1) < epsilon:
-        chosen_action = env.action_space.sample()
-    else:
-        chosen_action = np.argmax(y)
-    return chosen_action
-
-# given state, predict value for all actions 
-def predict(self, state):
-    features = self.feature_transformer.featurize_state(state)
-    return features @ self.w.T
-
-# update the weight using SARSA update rule
-def sarsa_update(self, lr, reward, gamma, state, action, next_state, next_action):
-    feature = feature_transformer.featurize_state(state).flatten()
-    self.w[action] += lr * (reward + gamma * self.q(next_state, next_action) - self.q(state, action)) * feature
-
-# update the weight using Q-learning update rule
-def q_update(self, lr, reward, gamma, state, action, next_state):
-    feature = feature_transformer.featurize_state(state).flatten()
-    next_q_max = np.max(self.predict(next_state))
-    self.w[action] += lr * (reward + gamma * next_q_max - self.q(state, action)) * feature
-  \end{lstlisting}
-
 \subsection*{1.3 Resource Allocation Network}
 
+Resource Allocation Network (RAN) is an adaptive model that allocate a number of computational units (gaussian basis function) based on the difficulty of the problem.
+Compared to the previous approach, where the number, the width and the location of the basis function are fixed, 
+RAN's dynamic nature helps alleviate the problem of underfitting or overfitting. 
+This is because fixed-sized networks either use too few units, which make the network memorise poorly, 
+or too many units, which make the model unable to generalize. 
+In RAN, the allocation of new unit is done based on two conditions: the distance between new input and existing centers ($\delta$), 
+and the desire accuracy ($\epsilon$).
+If the conditions are not met, then the weights are optimised normally using gradient descent.
+
+To incorporate RAN for solving the mountain car problem, we first need to specify the distance ($\delta$), and the desire accuracy ($\epsilon$).
+These parameters can be chosen arbitrarily and then later improve by performing systematic parameter search, 
+or we can select them based on statistics obtained from the RBF method, such as average distance and average error.
+The overall processes of using RAN with SARSA are summarised in the following pseudo code.
+
+\begin{algorithm}
+  \SetAlgoLined
+   $\epsilon,\delta_{max},\delta_{min} \leftarrow$ initialise desire accuracy, minimum and maximum desired distance\;
+   $\delta$ = ${\delta}_{max}$\;
+   \For{each episode} {
+    $S, A$ $\leftarrow$ initialise state and action of episode\;
+   \While{episode is not end} {
+    Take action $A$, observe $R, S'$\;
+    Choose next action $A'$ as a function of $\hat{q}(S,.,w)$ using $\epsilon$-greedy\;
+    Evaluate output from current approximated Q function; $q_{cur} = \hat{q}(S,A,w)$\;
+    Compute error using SARSA target; $error = R+\gamma\hat{q}(S',A',w) - q_{cur}$\;
+    Find distance to nearest center; $d = min_j||c_j-S||$\;
+   \eIf{$||error|| > \epsilon$ and $d > \delta$} {
+      Allocate new unit with center equal to the location of current state; $c_{new} = S$
+      with width equal proportionally to the distance to nearest center; $width = kd$
+    }{
+      Perform gradient descent update; $w \leftarrow w + \alpha (error)\nabla \hat{q}(S,A,w)$
+    }
+    \If{$S'$ is terminal}{
+      Go to next episode
+    }
+
+    $S \leftarrow S'$\;
+    $A \leftarrow A'$\;
+    \If{$\delta > \delta_{min}$}{
+      $\delta \leftarrow \delta * exp(-1/\Gamma)$
+    }
+
+   }
+   }
+   \caption{Pseudo-code for integrating RAN for solving a mountain car problem}
+  \end{algorithm}
 
 
-\section*{Part 2: Summarising a Recent Scientific Study}
+\section*{Part 2: Summarising a recent scientific study}
+\textbf{Human-level control through deep reinforcement learning}
 
-\subsection*{2.1 Human-level Control through Deep Reinforcement
-Learning}
+In this paper, Mnih et al. show how to combine reinforcement learning (RL) with deep learning as a function approximator in a stable manner.
+They developed an RL agent called deep Q-Network (DQN), which combined Q-learning with deep convolutional neural networks (CNN).
+Their aim is to create a general learning algorithm to solve various tasks. 
+To demonstrated this, 49 different Atari 2600 video games were used as a platform for learning and evaluating the performance of the DQN agent.
+The Atari 2600 is a video game console which contains several popular arcade games, such as Pong, Breakout and Space Invaders.
+Due to the popularity and the challenges these games posed, they have been attractive as a testbed for studying and evaluating RL algorithms.
+With DQN, they show that an RL agent can achieve high performance in different kinds of game, without using any problem-specific features.
 
 
+The main idea of this agent is that the CNN, which processes raw pixels of the game, are used to approximate the Q function directly
+ without modeling the state transition (model free approach). 
+To represent the input state of the deep CNN, raw images of the game are preprocessed 
+by converting a 210x160 colour images into a 84x84x4 image (using the last 4 frames).
+The last layer of the CNN are fully connected layer which outputs the value for each action, representing the state-action value.
+The actions are defined according to the joystick of the game console.
+Depending on the game, the number of valid actions varied between 4 and 18.
+The reward signal are standardized across all games, in which the reward is +1 whenever the score of the game increased,
+ -1 whenever the score decreased, and 0 otherwise. 
+ As mention in the paper, this standardized of rewards helps the model learn without adjusting the learning rate between each game.
+To ensure extensive exploration of state-space, the action is selected using $\epsilon$-greedy policy, with $\epsilon$ decreasing linearly over the first million frames.
 
+The main improvements from a DQN agent over previous methods, which make training deep reinforcement learning stable are the use of \textit{experience replay} and \textit{fixed Q target}.
+Traditionally, training deep neural network to approximate the value function is known to be difficult and often diverges
+due to the correlation between the sequence of training data (observation).
+Experience replay technique helps reduces the correlation between training examples, 
+where the experiences are randomly sample instead of using the full sequence of frames as training data.
+In addition, instead of computing the gradient of the Q function with respect to itself, 
+the fixed old weights from previous C iterations are used to compute the Q-learning target. 
+The overall optimisation objective can be summarised in the following equation: 
+\begin{equation}
+L_i(\theta_i) = \mathbb{E}_{s,a,r,s'\sim D_i} [(r + \gamma \max_{a'}Q(s',a';\theta^{-}_{i}) - Q(s,a;\theta_i))^2]
+\end{equation}
+where $D_i$ is the set of experiences, $\theta_i$ is the weight of the CNN network at iteration i, 
+and $\theta^-_i$ is the fixed weight of the duplicate network at iteration i.
+
+As a result, the DQN agent was able to play the game at the level of human or better in 29 out of 49 games.
+This development is a major step forward in creating an artificial intelligent system that excel in diverse and challenging tasks without problem-specific features. 
+However, there are still many limitations in this approach.
+For instance, the DQN is still not able to multi-task, as the weight are learn separately for each game. 
+In addition, even though the agent was able to solve various kinds of games, the tasks are quite similar in which the raw pixels are taken as input, 
+and the output is the optimal action to control the games.
+Despite these limitations, I believed that DQN has shown us the potential of combining RL with deep learning, 
+and open up many possibilities for practical real-word applications, such as industrial robots, self-driving car, and power systems management.
+
+\newpage
+\appendix
+\section{Snippet of code}
+\subsection{RL agent using gaussian RBF for action value function approximator}
+\label{rl-code}
+\begin{lstlisting}[language=Python]
+  # generate basis function center using K-means clustering and sampled environment states.
+  def init_rbf(self, env, n_basis=100):
+      observation_examples = np.array([env.observation_space.sample() for x in range(10000)])
+      scaler = StandardScaler()
+      scaler.fit(observation_examples)
+      scaled_examples = scaler.transform(observation_examples)
+      kmeans = KMeans(n_clusters=n_basis, random_state=0).fit(scaled_examples)
+      return kmeans.cluster_centers_
+  
+  # get Q value from a given state and action
+  def q(self, state, action):
+      features = self.feature_transformer.featurize_state(state)
+      return np.dot(features, self.w[action])
+  
+  # given state choose next action based on epsilon greedy policy
+  def epsilon_greedy(self, state):
+      y = self.predict(state)
+      if np.random.uniform(low=0, high=1) < epsilon:
+          chosen_action = env.action_space.sample()
+      else:
+          chosen_action = np.argmax(y)
+      return chosen_action
+  
+  # given state, predict value for all actions 
+  def predict(self, state):
+      features = self.feature_transformer.featurize_state(state)
+      return features @ self.w.T
+  
+  # update the weight using SARSA update rule
+  def sarsa_update(self, lr, reward, gamma, state, action, next_state, next_action):
+      feature = feature_transformer.featurize_state(state).flatten()
+      self.w[action] += lr * (reward + gamma * self.q(next_state, next_action) - self.q(state, action)) * feature
+  
+  # update the weight using Q-learning update rule
+  def q_update(self, lr, reward, gamma, state, action, next_state):
+      feature = feature_transformer.featurize_state(state).flatten()
+      next_q_max = np.max(self.predict(next_state))
+      self.w[action] += lr * (reward + gamma * next_q_max - self.q(state, action)) * feature
+    \end{lstlisting}
 \end{document}

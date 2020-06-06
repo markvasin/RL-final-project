@@ -89,7 +89,7 @@ if __name__ == '__main__':
     env.render()
 
     # initializations
-    episodes = 1000
+    episodes = 100
     alpha = 0.01  # learning rate
     gamma = 0.99  # discount factor
     epsilon = 0.05  # epsilon greedy policy
