@@ -17,4 +17,4 @@ The goal of this problem is to get the under-power car to the top of the mountai
 - Radial Basis Functions
 
 ## Learning Curve
-![plot](learning%20plot.png)
+![plot](Learning%20plot.png)
